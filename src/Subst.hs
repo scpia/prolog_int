@@ -15,6 +15,8 @@ where
 import Base.Type
 import Data.List (intercalate, nub, sort)
 import Test.QuickCheck
+import Pretty
+import Vars
 
 -- Data type for substitutions
 data Subst = Subst [(VarName, Term)]
@@ -25,6 +27,18 @@ instance Arbitrary Subst where
   -- We use the `suchThat` combinator to filter out substitutions that are not valid,
   -- i.e. whose domain contains the same variable more than once.
   arbitrary = Subst <$> (arbitrary `suchThat` ((\vts -> length vts == length (nub vts)) . map fst))
+
+-- Pretty printing of substitutions
+instance Pretty Subst where
+  pretty (Subst vts) = '{' : intercalate ", " (map prettyVt vts) ++ "}"
+    where
+      prettyVt (x, t) = unwords [pretty (Var x), "->", pretty t]
+
+-- All variables occuring in substitutions
+instance Vars Subst where
+  allVars (Subst vts) = nub (vs ++ concatMap allVars ts)
+    where
+      (vs, ts) = unzip vts
 
 -- Properties
 
