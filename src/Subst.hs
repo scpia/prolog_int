@@ -2,12 +2,12 @@
 
 module Subst
   ( Subst, -- don't export the constructor of the data type!
-    -- domain,
-    -- empty,
-    -- single,
-    -- compose,
-    -- apply,
-    -- restrictTo,
+    domain,
+    empty,
+    single,
+    compose,
+    apply,
+    --restrictTo,
     testSubst,
   )
 where
@@ -17,6 +17,7 @@ import Data.List (intercalate, nub, sort)
 import Test.QuickCheck
 import Pretty
 import Vars
+import Test.QuickCheck.State (State(terminal))
 
 -- Data type for substitutions
 data Subst = Subst [(VarName, Term)]
@@ -40,9 +41,6 @@ instance Vars Subst where
     where
       (vs, ts) = unzip vts
 
--- Properties
-
-{- Uncomment this to test the properties when all required functions are implemented
 
 -- Applying the empty substitution to a term should not change the term
 prop_1 :: Term -> Bool
@@ -113,16 +111,73 @@ prop_13 x1 x2 =
 prop_14 :: Subst -> Bool
 prop_14 s = all (`elem` allVars s) (domain s)
 
--- Restricting the empty substitution to an arbitrary set of variables should return the empty substitution
+{-- Restricting the empty substitution to an arbitrary set of variables should return the empty substitution
 prop_15 :: [VarName] -> Bool
 prop_15 xs = null (domain (restrictTo empty xs))
 
 -- The domain of a restricted substitution is a subset of the given set of variables
 prop_16 :: [VarName] -> Subst -> Bool
-prop_16 xs s = all (`elem` xs) (domain (restrictTo s xs))
+prop_16 xs s = all (`elem` xs) (domain (restrictTo s xs))--}
 
--}
+
 
 -- Run all tests
 testSubst :: IO Bool
-testSubst = undefined
+testSubst = do
+  putStrLn "Running Substitution Tests..."
+
+  results <- sequence
+    [ quickCheckResult prop_1,
+      quickCheckResult prop_2,
+      quickCheckResult prop_3,
+      quickCheckResult prop_4,
+      quickCheckResult prop_5,
+      quickCheckResult prop_6,
+      quickCheckResult prop_7,
+      quickCheckResult prop_8,
+      quickCheckResult prop_9,
+      quickCheckResult prop_10,
+      quickCheckResult prop_11,
+      quickCheckResult prop_12,
+      quickCheckResult prop_13,
+      quickCheckResult prop_14
+    ]
+
+  let overallResult = all isSuccess results
+
+  if overallResult
+    then putStrLn "All tests passed!"
+    else putStrLn "Some tests failed."
+
+  return overallResult
+
+domain :: Subst -> [VarName]
+domain (Subst subs) = nub [x | (x, _) <- subs]                                               
+
+empty :: Subst
+empty = Subst []
+
+single :: VarName -> Term -> Subst
+single name term = case term of
+  Var x -> Subst [(name, term)| name /= x]
+  _ -> Subst [(name, term)]
+
+{-isEmpty :: Subst -> Bool
+isEmpty subs = null (domain subs)-}
+
+
+apply :: Subst -> Term -> Term
+apply (Subst []) term = term
+apply (Subst subs) (Var x) = applyHelper x subs
+apply (Subst subs) (Comb name combterm) = Comb name (map (apply (Subst subs)) combterm)
+  
+
+applyHelper :: VarName -> [(VarName, Term)] -> Term
+applyHelper x [] = Var x
+applyHelper x ((var, t):subss) = if x == var then t else applyHelper x subss
+
+compose :: Subst -> Subst -> Subst
+compose (Subst theta) (Subst sigma) =
+  Subst $
+    [(xi, bruh) | (xi, ti) <- sigma, bruh <- [apply (Subst theta) ti], bruh /= Var xi] ++
+    [(yj, uj) | (yj, uj) <- theta, yj `notElem` map fst sigma]
