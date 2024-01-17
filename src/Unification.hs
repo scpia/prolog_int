@@ -7,12 +7,13 @@ module Unification
 
 
 import Data.Maybe
-
+import Base.Type
 import Test.QuickCheck
+import Subst
+import Vars
 
 -- Properties
 
-{- Uncomment this to test the properties when all required functions are implemented
 
 -- Does  a variable occur in a term?
 occurs :: VarName -> Term -> Bool
@@ -38,8 +39,38 @@ prop_4 t1 t2 =
   let mMgu = unify t1 t2
   in isJust mMgu ==> let mgu = fromJust mMgu
                      in isNothing (ds (apply mgu t1) (apply mgu t2))
--}
 
 -- Run all tests
 testUnification :: IO Bool
-testUnification = undefined
+testUnification = do
+  putStrLn "Running Substitution Tests..."
+
+  results <- sequence
+    [ quickCheckResult prop_1,
+      quickCheckResult prop_2,
+      quickCheckResult prop_3,
+      quickCheckResult prop_4
+    ]
+
+  let overallResult = all isSuccess results
+
+  if overallResult
+    then putStrLn "All tests passed!"
+    else putStrLn "Some tests failed."
+
+  return overallResult
+
+unify :: Term -> Term -> Maybe Subst
+unify t1 t2 = unify' empty t1 t2
+  where
+    unify' s t1 t2 = case ds (apply s t1) (apply s t2) of Nothing -> Just s
+                                                          Just (Var v, t) -> let s' = single v t `compose` s in unify' s' t1 t2
+                                                          _ -> Nothing
+
+ds :: Term -> Term -> Maybe (Term, Term)
+ds t1 t2       | t1 == t2   = Nothing
+ds (Var v) t2               = Just (Var v, t2)
+ds t1 (Var v)               = Just (Var v, t1)
+ds (Comb f ts) (Comb g ss)  | f /= g || length ts /= length ss = Just (Comb f ts, Comb g ss)
+                            | otherwise = case filter isJust (zipWith ds ts ss) of []  -> Nothing
+                                                                                   s:_ -> s
