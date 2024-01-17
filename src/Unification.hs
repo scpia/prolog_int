@@ -64,7 +64,7 @@ unify :: Term -> Term -> Maybe Subst
 unify t1 t2 = unify' empty t1 t2
   where
     unify' s t1 t2 = case ds (apply s t1) (apply s t2) of Nothing -> Just s
-                                                          Just (Var v, t) -> let s' = single v t `compose` s in unify' s' t1 t2
+                                                          Just (Var v, t) | not (occurs v t) -> let s' = single v t `compose` s in unify' s' t1 t2
                                                           _ -> Nothing
 
 ds :: Term -> Term -> Maybe (Term, Term)
